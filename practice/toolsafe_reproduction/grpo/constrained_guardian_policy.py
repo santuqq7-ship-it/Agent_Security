@@ -13,11 +13,18 @@ from typing import Any, Iterable, Sequence
 
 import torch
 
-from constrained_guardian_fsm import (
-    CompiledGuardianGrammar,
-    ConstraintViolation,
-    GuardianTokenFSM,
-)
+try:
+    from .constrained_guardian_fsm import (
+        CompiledGuardianGrammar,
+        ConstraintViolation,
+        GuardianTokenFSM,
+    )
+except ImportError:  # Direct script/test imports place grpo/ itself on sys.path.
+    from constrained_guardian_fsm import (
+        CompiledGuardianGrammar,
+        ConstraintViolation,
+        GuardianTokenFSM,
+    )
 
 
 class InvalidConstrainedTrace(ValueError):

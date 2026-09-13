@@ -16,13 +16,28 @@ from agent.agent_prompts import *
 from utils.tool_parser import *
 
 class SecReAct_Agent:
-    def __init__(self, system_template="", agentic_model=None, guard_model=None, max_turns=10, trace_callback=None):
+    FLOW_MODES = frozenset({"react", "abort", "ts_flow"})
+
+    def __init__(
+        self,
+        system_template="",
+        agentic_model=None,
+        guard_model=None,
+        max_turns=10,
+        trace_callback=None,
+        flow_mode="ts_flow",
+    ):
         # Initialize with parent class
         self.system_template= system_template
         self.agentic_model = agentic_model
         self.guard_model = guard_model
         self.max_turns = max_turns
         self.trace_callback = trace_callback
+        if flow_mode not in self.FLOW_MODES:
+            raise ValueError(
+                f"flow_mode must be one of {sorted(self.FLOW_MODES)}, got {flow_mode!r}"
+            )
+        self.flow_mode = flow_mode
 
         self.entropy_stats = {}
         self.entropies = []
@@ -106,32 +121,82 @@ class SecReAct_Agent:
                 if tool_name:
                     logs += f" -- running {tool_name} {tool_params}\n"
                     if tool_name in known_actions:
-                        ########## Guardrail Tools ######################
-                        agent_action = bot.messages[2:]
-                        interaction_history, current_action = agent_action[:-1], agent_action[-1]
-                        meta_info = {"user_request": query, "interaction_history": interaction_history, "current_action": current_action, "current_action_description": available_tool_descriptions_str}
-                        self._emit_trace({
-                            "kind": "guardian_call",
-                            "arguments": deepcopy(meta_info),
-                        })
-                        guard_res = self.guard_model.call_tool(tool_name="tool_safety_guardian", arguments=meta_info)
-                        self._legacy_print(guard_res)
-                        self._emit_trace({
-                            "kind": "guardian_result",
-                            "result": deepcopy(guard_res),
-                        })
-                        if "risk rating" in guard_res and guard_res["risk rating"] >= 0.5:
+                        if self.flow_mode != "react":
+                            ########## Guardrail Tools ######################
+                            agent_action = bot.messages[2:]
+                            interaction_history, current_action = agent_action[:-1], agent_action[-1]
+                            meta_info = {"user_request": query, "interaction_history": interaction_history, "current_action": current_action, "current_action_description": available_tool_descriptions_str}
                             self._emit_trace({
-                                "kind": "tool_blocked",
-                                "tool_name": tool_name,
-                                "tool_arguments": deepcopy(tool_params),
-                                "reason": deepcopy(guard_res),
+                                "kind": "guardian_call",
+                                "arguments": deepcopy(meta_info),
                             })
-                            guard_res = {"risk rating": guard_res["risk rating"]}
-                            validation_result = f"Security Validation Before Execution:\n{guard_res}\n\nPerhaps you should try other safer tool calls."
-                            next_prompt = "Observation: "+ validation_result
-                            continue
-                        #################################################
+                            try:
+                                guard_res = self.guard_model.call_tool(
+                                    tool_name="tool_safety_guardian",
+                                    arguments=meta_info,
+                                )
+                                risk_rating = guard_res.get("risk rating")
+                                if type(risk_rating) not in (int, float) or float(
+                                    risk_rating
+                                ) not in {0.0, 0.5, 1.0}:
+                                    raise RuntimeError(
+                                        "Guardian returned no valid risk rating"
+                                    )
+                            except Exception as guard_error:
+                                self._emit_trace({
+                                    "kind": "guardian_error",
+                                    "tool_name": tool_name,
+                                    "tool_arguments": deepcopy(tool_params),
+                                    "error": str(guard_error),
+                                })
+                                if self.flow_mode == "abort":
+                                    logs += "Guardian unavailable; action blocked and trajectory aborted.\n"
+                                    break
+                                next_prompt = (
+                                    "Observation: Security Validation Before Execution:\n"
+                                    "Guardian unavailable; the proposed tool action was not executed."
+                                )
+                                continue
+                            self._legacy_print(guard_res)
+                            self._emit_trace({
+                                "kind": "guardian_result",
+                                "result": deepcopy(guard_res),
+                            })
+                            if float(risk_rating) >= 0.5:
+                                self._emit_trace({
+                                    "kind": "tool_blocked",
+                                    "flow_mode": self.flow_mode,
+                                    "tool_name": tool_name,
+                                    "tool_arguments": deepcopy(tool_params),
+                                    "reason": deepcopy(guard_res),
+                                })
+                                if self.flow_mode == "abort":
+                                    logs += "Security Validation Before Execution: action blocked; trajectory aborted.\n"
+                                    self._emit_trace({
+                                        "kind": "flow_aborted",
+                                        "tool_name": tool_name,
+                                        "tool_arguments": deepcopy(tool_params),
+                                    })
+                                    break
+
+                                reason = guard_res.get("reason")
+                                if not isinstance(reason, str) or not reason.strip():
+                                    raise RuntimeError(
+                                        "Guardian blocked the action without complete feedback"
+                                    )
+                                validation_result = (
+                                    "Security Validation Before Execution:\n"
+                                    f"{reason.strip()}\n\n"
+                                    "Perhaps you should try other safer tool calls."
+                                )
+                                next_prompt = "Observation: " + validation_result
+                                self._emit_trace({
+                                    "kind": "guardian_feedback",
+                                    "tool_name": tool_name,
+                                    "feedback": next_prompt,
+                                })
+                                continue
+                            #################################################
 
 
                         if isinstance(known_actions[tool_name], FunctionType):

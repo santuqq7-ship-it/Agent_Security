@@ -1029,3 +1029,33 @@ validation 20.55%、banking 52.87%；512 Token下剩余3条解析失败由解释
 重规划的危险执行率、任务完成率、误拦率和时延；只有端到端指标证实语义校准不足时，
 再用低rank、低学习率、1 epoch LoRA，并回归官方零样本结果。详细报告见
 `OFFICIAL_TS_GUARD_7B_EVALUATION.md`。
+
+### 16.9 TS-Flow小测试实现：本地双7B与Token FSM执行边界（2026-09-13）
+
+在官方7B基线通过后，下一阶段选择“本地Qwen2.5-7B-Instruct Agent + 官方TS-Guard 7B”
+先做机制小测试；正式Agent能力评测再换成更强的OpenAI-compatible API模型。这样先验证
+Guard、工具阻断和反馈重规划控制流，避免把本地7B Agent的规划能力不足误诊为TS-Flow
+失效。
+
+本地overlay新增`react/abort/ts_flow`三种互斥模式：`react`不加载也不调用Guard；`abort`
+在风险大于等于0.5时阻断动作并终止轨迹；`ts_flow`阻断动作后，把非空Think和三个判断
+字段的完整输出作为Observation交还Agent继续规划。原实现把反馈裁剪为单一
+`risk rating`字典，与完整反馈实验目标不符，本阶段已移除该裁剪。Guard异常或缺失合法
+风险值时采用fail-closed，当前动作不进入工具运行时，并产生显式`guardian_error`轨迹。
+
+官方Guard推理新增`ConstrainedGuardian`适配器，直接复用E2/E3的tokenizer-aware FSM和
+HF Actor生成逻辑。固定标签、空格、换行和闭合符由FSM保证；模型仍决定Think正文、结束
+动作及三个枚举值。结构化judgments直接来自FSM状态，不再依赖正则解析。风险聚合保持
+官方parser原语义，返回接口仍兼容现有SecReAct Agent。
+
+单轨迹runner已拆开`--agent-model-path`和`--guardian-model-path`，支持本地Transformers
+Agent以及后续API Agent边界；API key只允许从指定环境变量读取，不写入命令、trace或文档。
+无护栏模式不会加载15GB Guard权重。trace新增Grammar格式率、阻断数、反馈数、Guard错误数
+和真实runtime执行数汇总。
+
+本地不加载权重的RED→GREEN聚焦验证为24/24通过，覆盖三种模式、完整反馈、危险动作不达
+runtime、Guard异常fail-closed、FSM结构化返回、独立模型路径和既有Transformers适配器。
+既有TinyCausalLM概率一致性测试在macOS CPU上有约`1e-6`量级平台浮点差异，云端A800
+此前门禁误差为0.0；本阶段没有为迎合本地结果放宽训练parity阈值。真实双7B AgentDojo
+小测试尚未运行，固定样本为workspace `user_task_0`及其
+`tool_knowledge + injection_task_0`攻击组合，ASB继续冻结。

@@ -15,9 +15,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import warnings
 from pathlib import Path
 from typing import Any, TextIO
+
+REPRO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPRO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPRO_ROOT))
 
 # The original prompt intentionally contains the literal ``<\Tag>`` protocol.
 # Python warns about that backslash while compiling the unchanged source; the
@@ -26,7 +32,8 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 from agent.agent_prompts import AGENT_PROMPT_TEMPLATES
 from agent.sec_react_agent import SecReAct_Agent
-from model.model import Guardian, Model
+from model.constrained_guardian import ConstrainedGuardian
+from model.model import Model
 
 from agentdojo.agent_pipeline.agent_pipeline import AgentPipeline, PipelineConfig
 from agentdojo.attacks.attack_registry import load_attack
@@ -129,6 +136,12 @@ class TracePrinter:
         self._last_agent_rendered_prompt = ""
         self._last_guardian_prompt = ""
         self._agent_outputs: set[str] = set()
+        self._guardian_responses = 0
+        self._grammar_valid_responses = 0
+        self._blocked_actions = 0
+        self._feedback_events = 0
+        self._guardian_errors = 0
+        self._runtime_tool_executions = 0
 
     def __call__(self, event: dict[str, Any]) -> None:
         """Write one event to raw JSONL and render its readable counterpart."""
@@ -136,7 +149,39 @@ class TracePrinter:
         if self.raw_file is not None:
             self.raw_file.write(json.dumps(safe_event, ensure_ascii=False, default=str) + "\n")
             self.raw_file.flush()
+        self._record_metrics(event)
         self._render(event)
+
+    def _record_metrics(self, event: dict[str, Any]) -> None:
+        source = event.get("source")
+        kind = event.get("kind")
+        if source == "guardian" and kind == "guardian_response":
+            self._guardian_responses += 1
+            self._grammar_valid_responses += int(event.get("constrained") is True)
+        elif source == "secreact" and kind == "tool_blocked":
+            self._blocked_actions += 1
+        elif source == "secreact" and kind == "guardian_feedback":
+            self._feedback_events += 1
+        elif source == "secreact" and kind == "guardian_error":
+            self._guardian_errors += 1
+        elif source == "secreact" and kind == "runtime_run_function":
+            self._runtime_tool_executions += 1
+
+    def summary_metrics(self) -> dict[str, int | float]:
+        format_rate = (
+            self._grammar_valid_responses / self._guardian_responses
+            if self._guardian_responses
+            else 0.0
+        )
+        return {
+            "guardian_responses": self._guardian_responses,
+            "grammar_valid_responses": self._grammar_valid_responses,
+            "grammar_format_rate": format_rate,
+            "blocked_actions": self._blocked_actions,
+            "feedback_events": self._feedback_events,
+            "guardian_errors": self._guardian_errors,
+            "runtime_tool_executions": self._runtime_tool_executions,
+        }
 
     def _render(self, event: dict[str, Any]) -> None:
         source = event.get("source", "unknown")
@@ -255,6 +300,10 @@ class TracePrinter:
             )
             return
 
+        if source == "guardian" and kind == "guardian_decision":
+            _print_small_json("Guardian constrained decision", event)
+            return
+
         if source == "secreact" and kind == "guardian_result":
             result = dict(event.get("result", {}))
             result.pop("reason", None)
@@ -288,6 +337,18 @@ class TracePrinter:
             )
             return
 
+        if source == "secreact" and kind == "guardian_feedback":
+            _print_text("Complete Guardian feedback returned to Agent", event.get("feedback"))
+            return
+
+        if source == "secreact" and kind == "guardian_error":
+            _print_small_json("Guardian error; action fail-closed", event)
+            return
+
+        if source == "secreact" and kind == "flow_aborted":
+            _print_small_json("Trajectory aborted by Guard", event)
+            return
+
         if source == "runner" and kind == "summary":
             _print_small_json("\n=== Run summary ===", event)
             return
@@ -305,9 +366,41 @@ def build_parser() -> argparse.ArgumentParser:
     """Define only bounded options needed for a reproducible single-task run."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--model-path",
-        default="practice/models/Qwen2.5-1.5B-Instruct",
-        help="Local Agent and Guardian checkpoint directory.",
+        "--agent-backend",
+        default="transformers",
+        choices=("transformers", "api"),
+        help="Use a local Transformers Agent for smoke tests or an API Agent later.",
+    )
+    parser.add_argument(
+        "--agent-model-path",
+        default="practice/models/Qwen2.5-7B-Instruct",
+        help="Local Agent checkpoint; ignored when --agent-backend=api.",
+    )
+    parser.add_argument(
+        "--agent-model-name",
+        default="Qwen2.5-7B-Instruct",
+        help="Local display name or the exact API model identifier.",
+    )
+    parser.add_argument(
+        "--agent-api-base",
+        default=None,
+        help="OpenAI-compatible API base URL; used only by the API Agent.",
+    )
+    parser.add_argument(
+        "--agent-api-key-env",
+        default="AGENT_API_KEY",
+        help="Environment variable containing the API key; the key is never traced.",
+    )
+    parser.add_argument(
+        "--guardian-model-path",
+        default="practice/toolsafe_reproduction/models/official_ts_guard_7b",
+        help="Official local TS-Guard checkpoint used by abort and ts_flow modes.",
+    )
+    parser.add_argument(
+        "--flow-mode",
+        default="ts_flow",
+        choices=("react", "abort", "ts_flow"),
+        help="No Guard, detect-and-abort, or block-and-return-full-feedback.",
     )
     parser.add_argument(
         "--suite",
@@ -352,10 +445,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum tokens generated by the Agent per turn.",
     )
     parser.add_argument(
-        "--guardian-max-new-tokens",
+        "--guardian-min-rationale-tokens",
         type=int,
-        default=2048,
-        help="Maximum tokens generated by Guardian per retry.",
+        default=8,
+        help="Minimum non-empty Think content before the FSM permits closure.",
+    )
+    parser.add_argument(
+        "--guardian-max-rationale-tokens",
+        type=int,
+        default=192,
+        help="Maximum Think tokens before deterministic FSM closure.",
     )
     parser.add_argument(
         "--output-dir",
@@ -380,10 +479,52 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_agent_model(args: argparse.Namespace) -> Model:
+    """Build the selected Agent backend without exposing API credentials."""
+
+    if args.agent_backend == "transformers":
+        return Model(
+            model_name=args.agent_model_name,
+            model_path=str(Path(args.agent_model_path).expanduser().resolve()),
+            model_type="analysis",
+            max_new_tokens=args.agent_max_new_tokens,
+        )
+
+    api_key = os.environ.get(args.agent_api_key_env)
+    if not api_key:
+        raise RuntimeError(
+            f"API Agent requires a non-empty {args.agent_api_key_env} environment variable"
+        )
+    return Model(
+        model_name=args.agent_model_name,
+        model_type="api",
+        api_base=args.agent_api_base or "",
+        api_key=api_key,
+        max_new_tokens=args.agent_max_new_tokens,
+    )
+
+
+def build_guardian_model(
+    args: argparse.Namespace,
+    *,
+    trace_callback,
+) -> ConstrainedGuardian | None:
+    """Avoid loading Guard weights for the unguarded ReAct baseline."""
+
+    if args.flow_mode == "react":
+        return None
+    return ConstrainedGuardian(
+        model_name="TS-Guard",
+        model_path=str(Path(args.guardian_model_path).expanduser().resolve()),
+        trace_callback=trace_callback,
+        min_rationale_content_tokens=args.guardian_min_rationale_tokens,
+        max_rationale_tokens=args.guardian_max_rationale_tokens,
+    )
+
+
 def main() -> None:
     """Construct the original flow and run one real suite/task combination."""
     args = build_parser().parse_args()
-    model_path = str(Path(args.model_path).expanduser().resolve())
     output_dir = Path(args.output_dir).expanduser().resolve()
     prepare_output_dir(output_dir, reset=args.reset_output)
     trace_path = (
@@ -393,21 +534,8 @@ def main() -> None:
     )
     trace_printer = TracePrinter(trace_path, show_full_prompts=args.show_full_prompts)
 
-    # Both models intentionally use the same small local checkpoint here. The
-    # Guardian is an untrained baseline, not the official TS-Guard weights.
-    agent_model = Model(
-        model_name="Qwen2.5-1.5B-Instruct",
-        model_path=model_path,
-        model_type="analysis",
-        max_new_tokens=args.agent_max_new_tokens,
-    )
-    guardian_model = Guardian(
-        model_name="TS-Guard",
-        model_path=model_path,
-        model_type="analysis",
-        trace_callback=trace_printer,
-        max_new_tokens=args.guardian_max_new_tokens,
-    )
+    agent_model = build_agent_model(args)
+    guardian_model = build_guardian_model(args, trace_callback=trace_printer)
     agent_model.trace_callback = trace_printer
 
     agent = SecReAct_Agent(
@@ -416,6 +544,7 @@ def main() -> None:
         guard_model=guardian_model,
         max_turns=args.max_turns,
         trace_callback=trace_printer,
+        flow_mode=args.flow_mode,
     )
 
     # ``defense=None`` preserves the custom ToolSafe Agent and avoids the
@@ -463,10 +592,14 @@ def main() -> None:
             "suite": args.suite,
             "user_task": args.user_task,
             "attack_type": args.attack_type,
+            "flow_mode": args.flow_mode,
+            "agent_backend": args.agent_backend,
+            "agent_model_name": args.agent_model_name,
             "system_prompt_template": args.system_prompt_template,
             "metadata_records": len(metadata),
             "utility": utility,
             "security": security,
+            "trace_metrics": trace_printer.summary_metrics(),
             "output_dir": str(output_dir),
             "raw_trace_file": str(trace_path),
         }
