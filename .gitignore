@@ -1,0 +1,39 @@
+# Operating-system and Python caches
+.DS_Store
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Local editor/agent state
+.joycode/
+.codex/
+/tmp/
+/AGENTS.md
+/practice/toolsafe_reproduction/private/
+
+# Nested official upstream repository (tracked independently)
+/ToolSafe/
+
+# Environments and downloaded model artifacts
+/envs/
+.venv*/
+/practice/models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Generated training/evaluation artifacts
+/practice/toolsafe_reproduction/results/
+/practice/toolsafe_reproduction/grpo/prepared_models/
+/practice/toolsafe_reproduction/grpo/vendor/
+*.parquet
+*.log
+
+# Downloaded/reconstructed datasets are reproducible from scripts.
+/practice/toolsafe_reproduction/data/**/*.json
+/practice/toolsafe_reproduction/data/**/*.jsonl
+!/practice/toolsafe_reproduction/data/**/manifest.json
+
+# The paper is a local research input, not source code.
+*.pdf
