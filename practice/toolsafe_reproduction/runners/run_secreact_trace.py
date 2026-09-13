@@ -38,6 +38,7 @@ from model.model import Model
 from agentdojo.agent_pipeline.agent_pipeline import AgentPipeline, PipelineConfig
 from agentdojo.attacks.attack_registry import load_attack
 from agentdojo.benchmark import run_task_with_injection_tasks, run_task_without_injection_tasks
+from agentdojo.models import MODEL_NAMES
 from agentdojo.task_suite.load_suites import get_suite
 
 
@@ -48,6 +49,23 @@ BENCHMARK_ARTIFACTS = (
     "security.json",
     "trace.jsonl",
 )
+
+
+def attack_compatible_pipeline_name(model_name: str) -> str:
+    """Return a pipeline name accepted by AgentDojo's attack templates.
+
+    AgentDojo performs a case-sensitive substring lookup against ``MODEL_NAMES``
+    even though local model display names commonly vary in capitalization. Keep
+    the inference model identifier untouched and normalize only the pipeline
+    metadata consumed while constructing an attack. Unknown identifiers use
+    AgentDojo's generic local-model entry.
+    """
+    folded_name = model_name.casefold()
+    for registered_name in MODEL_NAMES:
+        registered_text = str(registered_name)
+        if registered_text.casefold() in folded_name:
+            return registered_text
+    return f"local:{model_name}"
 
 
 def prepare_output_dir(output_dir: Path, reset: bool = False) -> Path:
@@ -559,6 +577,8 @@ def main() -> None:
             tool_output_format=None,
         )
     )
+    if args.attack_type != "none":
+        pipeline.name = attack_compatible_pipeline_name(args.agent_model_name)
     suite = get_suite(BENCHMARK_VERSION, args.suite)
     user_task = suite.get_user_task_by_id(args.user_task)
 

@@ -20,6 +20,17 @@ sys.path.insert(4, str(REPRO_ROOT / "runners"))
 import run_secreact_trace as runner  # noqa: E402
 
 
+def test_attack_pipeline_name_normalizes_known_model_case_and_unknown_fallback() -> None:
+    assert (
+        runner.attack_compatible_pipeline_name("Qwen2.5-7B-Instruct")
+        == "qwen2.5-7b-instruct"
+    )
+    assert (
+        runner.attack_compatible_pipeline_name("provider/unknown-model")
+        == "local:provider/unknown-model"
+    )
+
+
 def test_parser_separates_agent_and_guardian_checkpoints() -> None:
     args = runner.build_parser().parse_args(
         [
