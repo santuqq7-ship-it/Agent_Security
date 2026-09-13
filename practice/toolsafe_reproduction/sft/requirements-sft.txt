@@ -1,0 +1,6 @@
+# PEFT 0.17.1 imports HybridCache, which is exported by the 4.x Transformers
+# line but not by the currently installed Transformers 5.15.1 package.
+# Keep this environment matrix together for the local SFT exercise.
+transformers==4.57.1
+peft==0.17.1
+accelerate==1.10.1

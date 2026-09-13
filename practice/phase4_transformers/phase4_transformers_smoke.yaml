@@ -1,0 +1,8 @@
+# Local-only configuration for the first inference experiment.
+model_path: "/Users/qixinyao.1/.cache/modelscope/hub/models/Qwen/Qwen2___5-0___5B-Instruct"
+
+# "auto" chooses MPS when PyTorch exposes it and otherwise uses CPU.
+device: "auto"
+
+# Keep this short so the first run is cheap and easy to inspect.
+max_new_tokens: 128

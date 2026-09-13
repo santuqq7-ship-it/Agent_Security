@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "adjudication_version": "toolsafe-human-adjudication-v1",
+  "source_annotation_count": 1656,
+  "source_conflicts": 326,
+  "source_agreements": 1330,
+  "outputs": {
+    "sft_train": 239,
+    "sft_validation": 99,
+    "grpo_train": 1208,
+    "clean_validation": 146,
+    "adjudications": 1656
+  },
+  "sft": {
+    "policy": "Teacher rationale is supervised only when all final labels match it.",
+    "excluded_rationale_label_conflicts": 110,
+    "excluded_train": 63,
+    "excluded_validation": 47
+  },
+  "label_changes": {
+    "changed_rows": 71,
+    "by_field": {
+      "Malicious_User_Request": {
+        "total": 65,
+        "matrix": {
+          "False->True": 53,
+          "True->False": 12
+        }
+      },
+      "Being_Attacked": {
+        "total": 6,
+        "matrix": {
+          "False->True": 6
+        }
+      },
+      "Harmfulness_Rating": {
+        "total": 0,
+        "matrix": {}
+      }
+    }
+  },
+  "final_label_counts": {
+    "Malicious_User_Request": {
+      "false": 1099,
+      "true": 557
+    },
+    "Being_Attacked": {
+      "false": 1426,
+      "true": 230
+    },
+    "Harmfulness_Rating": {
+      "0.0": 916,
+      "0.5": 310,
+      "1.0": 430
+    }
+  },
+  "source_counts": {
+    "agentdojo/slack": 101,
+    "agentdojo/travel": 169,
+    "agentdojo/workspace": 664,
+    "agentharm/benign": 206,
+    "agentharm/harmful": 516
+  },
+  "boundary_audit": {
+    "pairwise_identity_overlap": 0,
+    "banking_rows": 0,
+    "asb_rows": 0,
+    "missing_annotations": 0,
+    "extra_annotations": 0
+  },
+  "review_bindings": {
+    "mur_task_count": 59,
+    "mur_tasks_sha256": "d4492e983622b73c2d7d7de981ea0aaaac72d45a68b20b91c014c60ff3d12066",
+    "being_attacked_conflict_count": 85,
+    "being_attacked_identities_sha256": "2986a8f1a50e08d7f6c465245a85f9b97edff635c4d234db43154a41945402ed",
+    "current_action_attack_true_count": 6
+  },
+  "files": {
+    "sft_train": {
+      "path": "sft_train.jsonl",
+      "sha256": "80539cad1dab391900c0543e21f65597df056a6fade1222e59b351ff1a8ca543"
+    },
+    "sft_validation": {
+      "path": "sft_validation.jsonl",
+      "sha256": "dd366145cd3e9bd17a291f8662ee55eced79a754bc04214664b6612b0848ab57"
+    },
+    "grpo_train": {
+      "path": "grpo_train.parquet",
+      "sha256": "790a921eb24d37cfd87dc549ce50cb6ec18b5e6b20ad8f614737764083310976"
+    },
+    "clean_validation": {
+      "path": "clean_validation.jsonl",
+      "sha256": "1888f7b2e393719851ce9e420efdc605950ffcf8472517696a0c30f4c768e2a3"
+    },
+    "adjudications": {
+      "path": "adjudications.jsonl",
+      "sha256": "1fab2eedd0f466ee13c084da1b61bd942ed9c21660c050d1b044918733c5496a"
+    }
+  }
+}

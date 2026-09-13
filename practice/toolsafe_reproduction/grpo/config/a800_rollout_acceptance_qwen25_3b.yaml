@@ -1,0 +1,22 @@
+# This file is intentionally rollout-only.  It contains no actor optimizer,
+# Trainer, reference-policy, or checkpoint-saving configuration.
+paths:
+  actor_model: /root/Agent-Security/practice/toolsafe_reproduction/results/sft_qwen25_3b_full_three_field
+  train_file: /root/Agent-Security/practice/toolsafe_reproduction/data/sft_grpo_disjoint/grpo_train.parquet
+  reward_function: /root/Agent-Security/practice/toolsafe_reproduction/grpo/vendor/verl-main/verl/utils/reward_score/agentsafety_v2_uniform.py
+
+data:
+  max_prompt_length: 4096
+  max_response_length: 256
+  seed: 20260830
+
+# Eight independently sampled responses form each GRPO comparison group.
+rollout:
+  name: vllm
+  n: 8
+  temperature: 1.2
+  top_p: 1.0
+  tensor_model_parallel_size: 1
+  gpu_memory_utilization: 0.40
+  max_num_batched_tokens: 8192
+  max_num_seqs: 128

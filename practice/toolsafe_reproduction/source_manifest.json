@@ -1,0 +1,23 @@
+{
+  "tool_safe_commit": "46358fa424a927a895c6c8322f99032c4eb5155e",
+  "tool_safe_root": "/Users/qixinyao.1/Desktop/Agent-Security/ToolSafe",
+  "python_executable": "/Users/qixinyao.1/Desktop/Agent-Security/ToolSafe/.venv-phase4/bin/python",
+  "python_version": "3.12.13",
+  "torch_version": "2.13.0",
+  "transformers_version": "5.15.1",
+  "yaml_version": "6.0.3",
+  "openai_version": "3.3.1",
+  "pydantic_version": "2.13.4",
+  "mps_built": true,
+  "mps_available_during_audit": false,
+  "vllm_installed": false,
+  "training_tree_present": false,
+  "training_tree_path": "ToolSafe/TS-Guard/verl-main",
+  "agent_model_path": "/Users/qixinyao.1/Desktop/Agent-Security/practice/models/Qwen2.5-1.5B-Instruct",
+  "guardian_model_path": "/Users/qixinyao.1/Desktop/Agent-Security/practice/models/Qwen2.5-1.5B-Instruct",
+  "notes": [
+    "The original model/model.py imports vLLM at module import time, so it cannot be imported on this environment without a compatibility overlay.",
+    "The local 1.5B checkpoint is used as an untrained Agent/Guardian baseline and is not the official TS-Guard checkpoint.",
+    "The user's existing README.md modification is preserved."
+  ]
+}

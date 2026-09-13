@@ -1,0 +1,66 @@
+# Canonical 3B paths. The actor is trainable; the reference remains frozen.
+paths:
+  actor_model: /root/Agent-Security/practice/toolsafe_reproduction/grpo/prepared_models/qwen2.5-3b-sft-full-format-reinforced/policy_init
+  reference_model: /root/Agent-Security/practice/toolsafe_reproduction/grpo/prepared_models/qwen2.5-3b-sft-full-format-reinforced/reference
+  train_file: /root/Agent-Security/practice/toolsafe_reproduction/data/sft_grpo_disjoint/grpo_train.parquet
+  validation_file: /root/Agent-Security/practice/toolsafe_reproduction/data/grpo_reconstructed/validation.parquet
+  reward_function: /root/Agent-Security/practice/toolsafe_reproduction/grpo/vendor/verl-main/verl/utils/reward_score/agentsafety_v2_rationale.py
+  verl_root: /root/Agent-Security/practice/toolsafe_reproduction/grpo/vendor/verl-main
+  output_dir: /root/Agent-Security/practice/toolsafe_reproduction/results/grpo_full_a800_qwen2.5_3b_format_reinforced
+
+# The user explicitly chose path/structure validation instead of reading every
+# multi-GB weight byte before launch. Actor/reference are copied from one SFT
+# source by the preparation command supplied with this config.
+integrity:
+  checkpoint_weight_sha256: null
+
+# 208 source rows longer than 4096 tokens were explicitly filtered earlier.
+data:
+  train_batch_size: 32
+  max_prompt_length: 4096
+  max_response_length: 256
+  seed: 20260830
+
+# Eight independently sampled responses form each GRPO comparison group.
+rollout:
+  name: vllm
+  n: 8
+  # Rationale responses are much longer than the earlier fields-only outputs.
+  # At 1.2, low-probability tail tokens corrupted tags and caused 35/128
+  # responses to hit the 256-token limit. 0.8 retains group sampling while
+  # keeping the SFT-learned four-line protocol dominant.
+  temperature: 0.6
+  top_p: 0.9
+  tensor_model_parallel_size: 1
+  gpu_memory_utilization: 0.40
+  max_num_batched_tokens: 8192
+  max_num_seqs: 128
+
+# ppo_mini_batch_size is counted before verl expands each prompt by rollout.n.
+actor:
+  # PyTorch SDPA avoids an unavailable flash_attn extension for FSDP
+  # Actor/Reference loading. vLLM rollout keeps its own Flash Attention backend.
+  attention_implementation: sdpa
+  # Half the first GRPO experiment's LR and 5x its KL coefficient reduce the
+  # risk of improving banking while catastrophically forgetting AgentHarm.
+  learning_rate: 0.0000005
+  ppo_mini_batch_size: 16
+  ppo_micro_batch_size_per_gpu: 4
+  log_prob_micro_batch_size_per_gpu: 8
+  max_token_len_per_gpu: 18432
+  kl_loss_coef: 0.005
+  clip_ratio: 0.2
+  gradient_checkpointing: true
+
+# One full pass is the first controlled experiment; later epochs require a
+# metric-based decision rather than silently extending paid GPU time.
+trainer:
+  experiment_name: qwen2.5_3b_full_grpo_format_reinforced_a800
+  n_gpus_per_node: 1
+  nnodes: 1
+  total_epochs: 1
+  # Intermediate checkpoints are essential because the previous run showed
+  # cross-domain regression that was visible only after external evaluation.
+  save_freq: 10
+  test_freq: 10
+  max_actor_ckpt_to_keep: 4

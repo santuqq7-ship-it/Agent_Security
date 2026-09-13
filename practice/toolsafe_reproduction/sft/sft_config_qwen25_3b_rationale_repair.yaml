@@ -1,0 +1,33 @@
+# One-epoch format reinforcement continued from the accepted rationale SFT.
+model_path: practice/toolsafe_reproduction/results/sft_qwen25_3b_full_three_field_rationale_repair
+train_file: practice/toolsafe_reproduction/data/sft_grpo_disjoint/sft_train_teacher_rationale.jsonl
+validation_file: practice/toolsafe_reproduction/data/sft_grpo_disjoint/sft_validation.jsonl
+output_dir: practice/toolsafe_reproduction/results/sft_qwen25_3b_full_three_field_format_reinforced
+
+seed: 20260904
+device: cuda
+dtype: bfloat16
+finetuning_method: full
+supervise_guardian_fields_only: false
+# Prompt/padding=0, Think body=0.2, all format boundaries, fields and EOS=1.0.
+think_token_weight: 0.2
+# Held-out validation has no Teacher rationale. Mask its empty Think prefix so
+# validation_loss measures the three fields and EOS instead of rewarding an
+# immediate empty <Think> closure.
+validation_supervise_guardian_fields_only: true
+save_model: true
+# With one epoch, checkpoint-epoch-1 would duplicate the final 5.8 GB model.
+save_epoch_checkpoints: false
+
+max_length: 4096
+prompt_head_tokens: 1024
+per_device_batch_size: 1
+gradient_accumulation_steps: 8
+epochs: 1
+
+# This is a narrow continuation pass, so halve the earlier repair learning rate.
+learning_rate: 0.000001
+weight_decay: 0.01
+max_grad_norm: 1.0
+logging_steps: 10
+gradient_checkpointing: true

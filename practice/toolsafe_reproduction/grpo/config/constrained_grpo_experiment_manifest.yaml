@@ -1,0 +1,186 @@
+schema_version: 1
+experiment_id: toolsafe-qwen25-3b-constrained-grpo-v3
+created_at: 2026-09-07
+
+purpose:
+  objective: Train a step-level Guardian with semantic GRPO under an engineering-guaranteed output grammar.
+  policy_family: Qwen2.5-3B-Instruct
+  checkpoint_selection_source: clean_validation
+
+data_boundaries:
+  sft_train:
+    role: training
+    canonical_path: practice/toolsafe_reproduction/data/teacher_adjudicated_v1/sft_train.jsonl
+    adjudication_manifest: practice/toolsafe_reproduction/data/teacher_adjudicated_v1/manifest.json
+    logical_rows: 239
+    original_candidates: 302
+    excluded_rationale_label_conflicts: 63
+    allowed_sources:
+      agentdojo/slack: 16
+      agentdojo/travel: 28
+      agentdojo/workspace: 120
+      agentharm/benign: 18
+      agentharm/harmful: 57
+
+  grpo_train:
+    role: training
+    canonical_path: practice/toolsafe_reproduction/data/teacher_adjudicated_v1/grpo_train.parquet
+    logical_rows: 1208
+    allowed_sources:
+      agentdojo/slack: 81
+      agentdojo/travel: 135
+      agentdojo/workspace: 531
+      agentharm/benign: 136
+      agentharm/harmful: 325
+
+  clean_validation:
+    role: validation_and_checkpoint_selection
+    canonical_path: practice/toolsafe_reproduction/data/teacher_adjudicated_v1/clean_validation.jsonl
+    sft_loss_subset_path: practice/toolsafe_reproduction/data/teacher_adjudicated_v1/sft_validation.jsonl
+    logical_rows: 146
+    sft_loss_subset_rows: 99
+    note: All 146 rows select checkpoints; only 99 rationale-label-compatible rows may contribute SFT validation loss.
+    sft_loss_subset_sources:
+      agentharm/benign: 20
+      agentharm/harmful: 79
+    allowed_sources:
+      agentharm/benign: 36
+      agentharm/harmful: 110
+
+  external_banking:
+    role: external_report_only
+    canonical_path: practice/toolsafe_reproduction/data/TS-Bench/agentdojo-traj/banking.json
+    logical_rows: 87
+    forbidden_uses:
+      - training
+      - api_teacher_labeling
+      - hyperparameter_selection
+      - checkpoint_selection
+
+  final_asb:
+    role: final_untouched_test_only
+    root: practice/toolsafe_reproduction/data/TS-Bench/asb-traj/test
+    logical_rows: 5231
+    files:
+      - DPI_attack_success.json
+      - OPI_attack_success.json
+      - atttack_failure.json
+    forbidden_uses:
+      - training
+      - api_teacher_labeling
+      - validation
+      - debugging
+      - hyperparameter_selection
+      - checkpoint_selection
+    access_policy: Do not inspect sample content until the final model and checkpoint are frozen.
+
+  unavailable_agentalign:
+    role: excluded
+    reason: Only Git LFS pointer content was recoverable; no further recovery attempts are planned.
+
+split_invariants:
+  - Every training or validation row must have a stable source_identity.
+  - SFT train, GRPO train, and clean validation source identities must be pairwise disjoint.
+  - AgentDojo banking must never appear in SFT or GRPO inputs.
+  - ASB must never appear in development, training, or checkpoint selection inputs.
+  - API Teacher annotation is limited to training candidates and clean validation.
+
+evaluation_protocol:
+  exact_score_labels: [0.0, 0.5, 1.0]
+  exact_macro_policy: Always average over all three labels, including absent prediction classes.
+  binary_score_labels: [0, 1]
+  required_generation_metrics:
+    - strict_parse_rate
+    - constraint_violation_count
+    - forced_rationale_close_rate
+    - variable_reward_group_rate
+    - all_equal_reward_group_rate
+  checkpoint_selection:
+    primary_data: clean_validation
+    forbidden_data:
+      - external_banking
+      - final_asb
+
+guardian_grammar:
+  protocol_version: toolsafe-guardian-token-fsm-v2
+  implementation: practice/toolsafe_reproduction/grpo/constrained_guardian_fsm.py
+  rationale:
+    min_content_tokens: 8
+    max_tokens: 192
+    end_signal: hidden_learned_post_rationale_prefix_token
+    forbidden_sampled_content:
+      - tag_delimiters
+      - newline
+      - tokenizer_special_tokens
+  fixed_syntax_policy: Deterministic syntax is serialized into context but excluded from policy-gradient and KL masks.
+  enum_policy: Tokenizer-specific tries over yes/no and 0.0/0.5/1.0.
+
+execution_policy:
+  real_training_started_by: user
+  asb_access_before_final_checkpoint: forbidden
+  preferred_rollout_backend: huggingface_same_actor
+  prohibited_training_backend: embedded_vllm_actor_copy
+
+grpo_algorithm:
+  optimizer:
+    name: AdamW
+    learning_rate: 0.000001
+    weight_decay: 0.0
+    max_grad_norm: 1.0
+  reward:
+    malicious_user_request: 0.20
+    being_attacked: 0.20
+    harmfulness_rating: 0.30
+    all_three_correct_bonus: 0.30
+    format_reward: 0.0
+    rationale_presence_reward: 0.0
+  advantage: prompt_local_population_standardization
+  all_equal_group_policy: exact_zero_advantage
+  policy_objective: clipped_ppo_ratio
+  clip_ratio: 0.20
+  reference_kl:
+    estimator: exp(ref_logp-new_logp)-(ref_logp-new_logp)-1
+    coefficient: 0.001
+  authoritative_old_log_prob: pre_update_full_sequence_constrained_replay
+  actor_parameter_dtype: float32
+  compute_autocast_dtype: bfloat16
+  reference_parameter_dtype: bfloat16
+
+stage_status:
+  e4_one_step_gate:
+    status: passed
+    report: practice/toolsafe_reproduction/results/constrained_grpo_e4/e4_one_step_report.json
+    rollout_count: 4
+    strict_format_count: 4
+    rewards: [0.4, 1.0, 1.0, 1.0]
+    old_new_max_abs_error: 0.0
+    old_new_parity_tolerance: 0.00001
+    gradient_norm_before_clipping: 12.948591232299805
+    observed_parameter_delta: 0.000001000240445137024
+    peak_cuda_memory_allocated_gb: 48.33283710479736
+    optimizer_step_executed: true
+    formal_training_started: false
+    checkpoint_written: false
+  e5_formal_training:
+    status: e5_runner_ready
+    runner: practice/toolsafe_reproduction/grpo/constrained_grpo_trainer.py
+    config: practice/toolsafe_reproduction/grpo/config/a800_constrained_grpo_e5.yaml
+    operator_documentation: practice/toolsafe_reproduction/grpo/E5_TRAINING.md
+    preflight_report: practice/toolsafe_reproduction/results/constrained_grpo_e5/e5_preflight.json
+    focused_test_count: 41
+    training_rows: 1208
+    validation_rows: 146
+    optimizer_steps_per_epoch: 302
+    rollouts_per_optimizer_step: 16
+    training_validation_identity_overlap: 0
+    banking_rows: 0
+    asb_rows: 0
+    formal_training_started: false
+    model_loaded_by_preflight: false
+    optimizer_created_by_preflight: false
+  e6_bounded_resume_gate:
+    status: not_started
+    procedure: Run to global step 1 with resume none, then resume auto to global step 2 and inspect timing, memory, parity, losses, and two-generation checkpoints.
+  e7_user_started_formal_training:
+    status: not_started
+    entry_condition: E6 bounded real-model throughput and exact-resume gate must pass.

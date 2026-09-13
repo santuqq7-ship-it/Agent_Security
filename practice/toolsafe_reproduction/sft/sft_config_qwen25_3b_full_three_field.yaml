@@ -1,0 +1,34 @@
+# Full-parameter three-field SFT on one NVIDIA A800 80GB.
+# The 302 SFT prompts are disjoint from the 1208 prompts reserved for GRPO.
+model_path: practice/models/Qwen2.5-3B-Instruct
+train_file: practice/toolsafe_reproduction/data/sft_grpo_disjoint/sft_train.jsonl
+validation_file: practice/toolsafe_reproduction/data/sft_grpo_disjoint/sft_validation.jsonl
+output_dir: practice/toolsafe_reproduction/results/sft_qwen25_3b_full_three_field_fields_only
+
+seed: 20260825
+device: cuda
+dtype: bfloat16
+finetuning_method: full
+# Keep the four-line protocol as input context, but assign cross-entropy labels
+# only to the three judgment fields and EOS. Think tokens receive label -100.
+supervise_guardian_fields_only: true
+save_model: true
+
+# One long example is processed per forward/backward pass. Eight gradients
+# are accumulated before one optimizer update, so the effective batch is 8.
+max_length: 4096
+prompt_head_tokens: 1024
+per_device_batch_size: 1
+gradient_accumulation_steps: 8
+epochs: 2
+
+# Full SFT uses a much smaller learning rate than the earlier LoRA runs because
+# every original Qwen parameter is now updated.
+learning_rate: 0.00001
+weight_decay: 0.01
+max_grad_norm: 1.0
+logging_steps: 10
+
+# Recompute intermediate activations during backward to keep a 4096-token
+# sequence safely inside one A800. This trades some speed for memory headroom.
+gradient_checkpointing: true

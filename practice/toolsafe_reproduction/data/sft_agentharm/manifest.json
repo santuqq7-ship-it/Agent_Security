@@ -1,0 +1,18 @@
+{
+  "source": "TS-Bench/agentharm-traj/{benign_steps.json,harmful_steps.json}",
+  "template": "GUARD_TEMPLATES[ashell-guardian-single]",
+  "target_protocol": "<Think> </\\Think>\\n<Judgment> {score:.1f} <\\Judgment>",
+  "raw_scores": [
+    0.0,
+    0.5,
+    1.0
+  ],
+  "seed": 20260825,
+  "train_records": 585,
+  "validation_records": 146,
+  "external_test": {
+    "path": "TS-Bench/agentdojo-traj/banking.json",
+    "used_for_training": false,
+    "purpose": "post-SFT external evaluation"
+  }
+}

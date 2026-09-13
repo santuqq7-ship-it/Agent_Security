@@ -1,0 +1,29 @@
+{
+  "protocol": "ashell-guardian-single",
+  "target_protocol": "<Think> </\\Think>\\n<Judgment> {score:.1f} <\\Judgment>",
+  "sources": {
+    "agentharm_train": "/Users/qixinyao.1/Desktop/Agent-Security/practice/toolsafe_reproduction/data/sft_agentharm_clean/train.jsonl",
+    "agentdojo_training_suites": [
+      "slack",
+      "travel",
+      "workspace"
+    ]
+  },
+  "counts": {
+    "agentharm": 585,
+    "agentdojo": 1133,
+    "total": 1718,
+    "score": {
+      "0.0": 979,
+      "0.5": 249,
+      "1.0": 490
+    }
+  },
+  "external_test": {
+    "dataset": "agentdojo",
+    "subset": "banking",
+    "path": "TS-Bench/agentdojo-traj/banking.json",
+    "used_for_training": false,
+    "purpose": "post-training external evaluation"
+  }
+}

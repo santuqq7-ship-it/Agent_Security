@@ -1,0 +1,31 @@
+# Local LoRA SFT configuration for the single-rating Guardian bridge.
+# Paths are deliberately explicit so the command is reproducible from the
+# Agent-Security workspace root.
+model_path: practice/models/Qwen2.5-1.5B-Instruct
+train_file: practice/toolsafe_reproduction/data/sft_agentharm/train.jsonl
+validation_file: practice/toolsafe_reproduction/data/sft_agentharm/validation.jsonl
+output_dir: practice/toolsafe_reproduction/results/sft_guardian_lora
+
+seed: 20260825
+device: auto
+dtype: auto
+max_length: 2048
+# When a prompt is too long, preserve both its beginning and its latest action.
+prompt_head_tokens: 512
+per_device_batch_size: 1
+gradient_accumulation_steps: 4
+epochs: 2
+learning_rate: 0.0001
+weight_decay: 0.0
+max_grad_norm: 1.0
+
+# LoRA updates only attention projections; base Qwen parameters stay frozen.
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+gradient_checkpointing: false

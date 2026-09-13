@@ -1,0 +1,52 @@
+{
+  "source_repository": "https://github.com/MurrayTom/ToolSafe",
+  "source_revision": "bcaf90a6f5532282d10cc7892395ca62a4f4aa9c",
+  "source_endpoint": "https://media.githubusercontent.com/media/MurrayTom/ToolSafe/main/TS-Bench",
+  "files": {
+    "agentdojo-traj/banking.json": {
+      "sha256": "eb4a314845c8236ba1bbcd9855973f59279a70368b6eb31d447a4cd243086029",
+      "bytes": 239239,
+      "records": 87
+    },
+    "agentdojo-traj/slack.json": {
+      "sha256": "08152de8cf9c39d01d58eb708f3a820a892f493841b975e09654ab904cf8a0d5",
+      "bytes": 361979,
+      "records": 101
+    },
+    "agentdojo-traj/travel.json": {
+      "sha256": "1935121585fb1a02662e8121fe80e78c6d89b77e0c6035ea2b75b593e3728a22",
+      "bytes": 1071254,
+      "records": 177
+    },
+    "agentdojo-traj/workspace.json": {
+      "sha256": "74b20a4fcd7df1c3e39a231e64860aeac8cd57ce3531728b329080abbcc862d0",
+      "bytes": 8959525,
+      "records": 855
+    },
+    "agentharm-traj/benign_steps.json": {
+      "sha256": "f44fce25b0ed795e3c11fadafb8d8c959d2ae4513e6e9f15e154fa4aba9bf020",
+      "bytes": 689251,
+      "records": 206
+    },
+    "agentharm-traj/harmful_steps.json": {
+      "sha256": "6046b4f4b2e5086c98780433bddf74be542eeec910e3260b4727bf22a9a3365b",
+      "bytes": 1764105,
+      "records": 525
+    },
+    "asb-traj/test/DPI_attack_success.json": {
+      "sha256": "a900a0775addf35588154d28438127f9c830a08845a105e084b319b1e984d4af",
+      "bytes": 5205776,
+      "records": 2293
+    },
+    "asb-traj/test/OPI_attack_success.json": {
+      "sha256": "e491c96e43c8352e65ca948a72cb3e6f366d60f14fd7d3d6e374865eb092ae47",
+      "bytes": 4712262,
+      "records": 2509
+    },
+    "asb-traj/test/atttack_failure.json": {
+      "sha256": "6cf422389a41416e05d236252ecba8757c1f7d7a978ae270e419ff846ae98f51",
+      "bytes": 945992,
+      "records": 429
+    }
+  }
+}

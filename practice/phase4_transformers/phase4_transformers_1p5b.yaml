@@ -1,0 +1,10 @@
+# A larger local Agent model for the next practice run.
+# The model is stored under practice/ so the original ToolSafe repository
+# remains unchanged and the path is easy to replace for a custom checkpoint.
+model_path: "/Users/qixinyao.1/Desktop/Agent-Security/practice/models/Qwen2.5-1.5B-Instruct"
+
+# "auto" selects MPS when available and otherwise falls back to CPU.
+device: "auto"
+
+# Keep the first 1.5B run short enough to inspect interactively.
+max_new_tokens: 128

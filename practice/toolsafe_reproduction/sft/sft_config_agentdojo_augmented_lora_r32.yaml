@@ -1,0 +1,34 @@
+# SFT configuration for the cross-suite augmentation experiment.
+#
+# Training data is AgentHarm train plus AgentDojo slack/travel/workspace.
+# AgentDojo banking is deliberately excluded and remains an external test set.
+model_path: practice/models/Qwen2.5-1.5B-Instruct
+train_file: practice/toolsafe_reproduction/data/sft_agentdojo_augmented/train.jsonl
+validation_file: practice/toolsafe_reproduction/data/sft_agentharm_clean/validation.jsonl
+output_dir: practice/toolsafe_reproduction/results/sft_guardian_lora_agentdojo_augmented_r32
+
+seed: 20260825
+device: auto
+dtype: auto
+max_length: 2048
+prompt_head_tokens: 512
+per_device_batch_size: 1
+gradient_accumulation_steps: 4
+epochs: 2
+learning_rate: 0.0001
+weight_decay: 0.0
+max_grad_norm: 1.0
+
+# Controlled capacity change relative to sft_config_clean.yaml:
+# r=32 makes each LoRA matrix four times wider than r=8.
+# alpha=64 keeps alpha/r=2, so the initial update scale is comparable.
+# Keeping q/k/v/o fixed isolates rank capacity from target-module coverage.
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+gradient_checkpointing: false
