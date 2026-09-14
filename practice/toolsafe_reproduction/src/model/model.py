@@ -39,17 +39,10 @@ class Model:
         self.trace_callback = None
 
         if self.model_type == "api":
-            if "gpt" in self.model_name.lower() or "claude" in self.model_name.lower() or "gemini" in self.model_name.lower():
-                self.llm = OpenAI(
-                    api_key=api_key,
-                    base_url=api_base
-                )
-            else:
-                self.llm = OpenAI(
-                    api_key=api_key,
-                    base_url=api_base,
-                    http_client=httpx.Client(auth=auth, verify=True)
-                )
+            self.llm = OpenAI(
+                api_key=api_key,
+                base_url=api_base,
+            )
         elif self.model_type == "analysis":
             device = _resolve_transformers_device()
             self.tokenizer = AutoTokenizer.from_pretrained(

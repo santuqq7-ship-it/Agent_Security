@@ -68,6 +68,32 @@ class _FakeAgentModelConfig:
     llm = _FakeAgentLLM()
 
 
+def test_api_model_uses_standard_bearer_compatible_client(monkeypatch):
+    """OpenAI-compatible APIs must not receive the legacy placeholder BasicAuth."""
+
+    captured = {}
+    sentinel = object()
+
+    def fake_openai(**kwargs):
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(model_module, "OpenAI", fake_openai)
+
+    agent_model = model_module.Model(
+        model_name="deepseek-chat",
+        model_type="api",
+        api_base="https://api.deepseek.com",
+        api_key="test-secret",
+    )
+
+    assert agent_model.llm is sentinel
+    assert captured == {
+        "api_key": "test-secret",
+        "base_url": "https://api.deepseek.com",
+    }
+
+
 def test_analysis_model_constructor_does_not_require_vllm(monkeypatch):
     """The local Transformers path must import without installing vLLM."""
 
