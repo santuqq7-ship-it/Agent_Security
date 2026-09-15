@@ -179,8 +179,25 @@ stage_status:
     model_loaded_by_preflight: false
     optimizer_created_by_preflight: false
   e6_bounded_resume_gate:
-    status: not_started
-    procedure: Run to global step 1 with resume none, then resume auto to global step 2 and inspect timing, memory, parity, losses, and two-generation checkpoints.
+    status: passed
+    report: practice/toolsafe_reproduction/results/constrained_grpo_e6/e6_acceptance.json
+    resumed_from_global_step: 1
+    completed_global_step: 2
+    mean_optimizer_step_seconds: 279.914996199
+    peak_cuda_memory_allocated_gb: 60.33518648147583
+    old_new_parity_max_abs_error: 0.0
+    latest_checkpoint_complete: true
+    previous_checkpoint_complete: true
   e7_user_started_formal_training:
-    status: not_started
-    entry_condition: E6 bounded real-model throughput and exact-resume gate must pass.
+    status: paused_before_start
+    reason: Official TS-Guard 7B evaluation and TS-Flow integration were prioritized after E6 exposed a 25-30 hour projected full run.
+    formal_training_started: false
+  official_guard_and_ts_flow:
+    status: guard_audit_planned
+    official_guard_offline_rows: 233
+    guarded_ts_flow_trajectories: 2
+    react_reference_trajectories: 3
+    fully_paired_identities: 1
+    action_aware_implemented: false
+    asb_rows_used: 0
+    next_gate: Audit Guardian rationale, three fields, labels, and aggregate runtime risk before LoRA or action-aware policy implementation.
